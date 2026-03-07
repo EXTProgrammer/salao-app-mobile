@@ -58,7 +58,7 @@ export function RegisterScreen() {
             };
 
             // 3. Faz o pedido (Endpoint que criamos no Spring Boot)
-            await api.post('/auth/register', requestData);
+            await api.post('/usuarios/registrar', requestData);
 
             // 4. Sucesso!
             Alert.alert(
@@ -72,7 +72,7 @@ export function RegisterScreen() {
 
             // Tratamento de erro detalhado (se o backend enviar mensagem)
             const mensagemErro = error.response?.data?.message || "Não foi possível criar a conta. O e-mail já pode estar em uso.";
-            Alert.alert("Erro no Registo", mensagemErro);
+            Alert.alert("Erro no Registro", mensagemErro);
         } finally {
             setLoading(false);
         }
@@ -132,7 +132,7 @@ export function RegisterScreen() {
                     <View style={styles.passwordContainer}>
                         <TextInput
                             style={styles.passwordInput}
-                            placeholder="Mínimo 6 caracteres"
+                            placeholder="Mínimo 8 caracteres"
                             placeholderTextColor="#999"
                             secureTextEntry={hidePassword}
                             value={senha}
@@ -166,7 +166,7 @@ export function RegisterScreen() {
                         {loading ? (
                             <ActivityIndicator color="#FFF" />
                         ) : (
-                            <Text style={styles.buttonText}>REGISTAR</Text>
+                            <Text style={styles.buttonText}>REGISTRAR</Text>
                         )}
                     </TouchableOpacity>
 

@@ -10,12 +10,13 @@ import {
     KeyboardAvoidingView,
     Platform
 } from 'react-native';
-// Importamos os ícones padrão do Expo
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
+import { useNavigation, NavigationProp } from '@react-navigation/native';
 
 export function LoginScreen() {
     const { signIn } = useAuth();
+    const navigation = useNavigation<NavigationProp<any>>();
 
     const [email, setEmail] = useState('');
     const [senha, setSenha] = useState('');
@@ -101,6 +102,13 @@ export function LoginScreen() {
                 <TouchableOpacity style={styles.forgotButton}>
                     <Text style={styles.forgotText}>Esqueci minha senha</Text>
                 </TouchableOpacity>
+
+                <TouchableOpacity
+                    style={styles.registerButton}
+                    onPress={() => navigation.navigate('Registrar')}
+                >
+                    <Text style={styles.registerText}>Não tem conta? <Text style={styles.registerTextBold}>Registre-se aqui</Text></Text>
+                </TouchableOpacity>
             </View>
         </KeyboardAvoidingView>
     );
@@ -183,5 +191,18 @@ const styles = StyleSheet.create({
     forgotText: {
         color: '#007AFF',
         fontSize: 14,
+    },
+
+    registerButton: {
+        marginTop: 24,
+        alignItems: 'center',
+    },
+    registerText: {
+        color: '#666',
+        fontSize: 14,
+    },
+    registerTextBold: {
+        color: '#007AFF',
+        fontWeight: 'bold',
     }
 });

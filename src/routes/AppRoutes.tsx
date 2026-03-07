@@ -3,6 +3,9 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 
 import { HomeScreen } from '../screens/HomeScreen';
+import { ServicesScreen } from '../screens/ServicesScreen';
+import { ProfessionalsScreen } from '../screens/ProfessionalsScreen';
+import { SchedulingScreen } from '../screens/SchedulingScreen';
 import { useAuth } from '../context/AuthContext';
 import { View, Text } from 'react-native';
 
@@ -32,10 +35,31 @@ export function AppRoutes() {
         >
             <Tab.Screen
                 name="Início"
-                component={HomeScreen}
+                component={ServicesScreen}
                 options={{
                     tabBarIcon: ({ color, size }) => (
                         <Ionicons name="home" size={size} color={color} />
+                    )
+                }}
+            />
+
+            <Tab.Screen
+                name="Agendar"
+                component={SchedulingScreen}
+                options={{
+                    tabBarIcon: ({ color, size }) => (
+                        <Ionicons name="calendar" size={size} color={color} />
+                    ),
+                    tabBarLabelStyle: { fontWeight: 'bold' }
+                }}
+            />
+
+            <Tab.Screen
+                name="Equipe"
+                component={ProfessionalsScreen}
+                options={{
+                    tabBarIcon: ({ color, size }) => (
+                        <Ionicons name="people" size={size} color={color} />
                     )
                 }}
             />
