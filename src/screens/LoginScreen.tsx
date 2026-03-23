@@ -2,41 +2,53 @@ import React, { useState } from 'react';
 import {
     View,
     Text,
-    StyleSheet,
     TextInput,
     TouchableOpacity,
-    ActivityIndicator,
+    StyleSheet,
     Alert,
+    ActivityIndicator,
     KeyboardAvoidingView,
     Platform
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
-import { useNavigation, NavigationProp } from '@react-navigation/native';
 
-export function LoginScreen() {
-    const { signIn } = useAuth();
-    const navigation = useNavigation<NavigationProp<any>>();
-
+export function LoginScreen({ navigation }: any) {
     const [email, setEmail] = useState('');
     const [senha, setSenha] = useState('');
-    // Novo estado para controlar se mostra ou esconde a senha
-    const [hidePassword, setHidePassword] = useState(true);
     const [loading, setLoading] = useState(false);
 
+    const { signIn } = useAuth();
+
     async function handleLogin() {
-        if (email.length === 0 || senha.length === 0) {
-            Alert.alert("Atenção", "Por favor, preencha e-mail e senha.");
+        if (!email || !senha) {
+            Alert.alert('Atenção', 'Por favor, preencha seu e-mail e senha.');
             return;
         }
 
         setLoading(true);
-
         try {
-            await signIn({ email, senha });
-        } catch (error) {
+            // 1. O App envia o Request DTO para o Java e recebe a resposta
+            const response = await api.post('/auth/login', { email, senha });
+
+            // 2. Extraímos a string do token exatamente como veio do Java
+            const tokenString = response.data.token;
+
+            // 3. Como os dados do usuário vieram "soltos" na resposta do Java,
+            // nós precisamos montar um objeto User para o React Native salvar
+            const usuarioLogado = {
+                id: response.data.usuarioId,
+                nome: response.data.nome,
+                email: email, // Usamos o e-mail que ele acabou de digitar, pois não veio no JSON
+                role: response.data.role
+            };
+
+            // 4. Enviamos os dados perfeitos para o Contexto salvar e logar!
+            await signIn(tokenString, usuarioLogado);
+
+        } catch (error: any) {
             console.log("Erro no login:", error);
-            Alert.alert("Erro", "E-mail ou senha inválidos. Tente novamente.");
+            Alert.alert('Erro', 'Não foi possível fazer o login. Verifique suas credenciais.');
         } finally {
             setLoading(false);
         }
@@ -47,44 +59,31 @@ export function LoginScreen() {
             style={styles.container}
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         >
-            <View style={styles.form}>
-                <Text style={styles.title}>Seu Salão</Text>
-                <Text style={styles.subtitle}>Faça login para começar</Text>
+            <View style={styles.content}>
+                <Text style={styles.title}>Bem-vindo!</Text>
+                <Text style={styles.subtitle}>Faça login para agendar seu horário</Text>
 
-                <Text style={styles.label}>E-mail</Text>
-                <TextInput
-                    style={styles.input}
-                    placeholder="exemplo@email.com"
-                    placeholderTextColor="#999"
-                    keyboardType="email-address"
-                    autoCapitalize="none"
-                    value={email}
-                    onChangeText={setEmail}
-                />
-
-                <Text style={styles.label}>Senha</Text>
-
-                {/* Container especial para alinhar o Input com o Ícone */}
-                <View style={styles.passwordContainer}>
+                <View style={styles.inputContainer}>
+                    <Text style={styles.label}>E-mail</Text>
                     <TextInput
-                        style={styles.passwordInput} // Estilo ajustado para não ter borda própria
-                        placeholder="Sua senha secreta"
-                        placeholderTextColor="#999"
-                        secureTextEntry={hidePassword} // Controlado pelo estado
+                        style={styles.input}
+                        placeholder="Digite seu e-mail"
+                        value={email}
+                        onChangeText={setEmail}
+                        keyboardType="email-address"
+                        autoCapitalize="none"
+                    />
+                </View>
+
+                <View style={styles.inputContainer}>
+                    <Text style={styles.label}>Senha</Text>
+                    <TextInput
+                        style={styles.input}
+                        placeholder="Digite sua senha"
                         value={senha}
                         onChangeText={setSenha}
+                        secureTextEntry
                     />
-
-                    <TouchableOpacity
-                        style={styles.eyeIcon}
-                        onPress={() => setHidePassword(!hidePassword)}
-                    >
-                        <Ionicons
-                            name={hidePassword ? 'eye-off' : 'eye'}
-                            size={24}
-                            color="#999"
-                        />
-                    </TouchableOpacity>
                 </View>
 
                 <TouchableOpacity
@@ -95,19 +94,15 @@ export function LoginScreen() {
                     {loading ? (
                         <ActivityIndicator color="#FFF" />
                     ) : (
-                        <Text style={styles.buttonText}>ENTRAR</Text>
+                        <Text style={styles.buttonText}>Entrar</Text>
                     )}
-                </TouchableOpacity>
-
-                <TouchableOpacity style={styles.forgotButton}>
-                    <Text style={styles.forgotText}>Esqueci minha senha</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
                     style={styles.registerButton}
-                    onPress={() => navigation.navigate('Registrar')}
+                    onPress={() => navigation.navigate('Register')}
                 >
-                    <Text style={styles.registerText}>Não tem conta? <Text style={styles.registerTextBold}>Registre-se aqui</Text></Text>
+                    <Text style={styles.registerText}>Não tem uma conta? <Text style={styles.registerTextBold}>Cadastre-se</Text></Text>
                 </TouchableOpacity>
             </View>
         </KeyboardAvoidingView>
@@ -118,9 +113,10 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: '#F5F5F5',
-        justifyContent: 'center',
     },
-    form: {
+    content: {
+        flex: 1,
+        justifyContent: 'center',
         padding: 24,
     },
     title: {
@@ -128,71 +124,41 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
         color: '#333',
         marginBottom: 8,
-        textAlign: 'center',
     },
     subtitle: {
         fontSize: 16,
         color: '#666',
-        textAlign: 'center',
-        marginBottom: 48,
+        marginBottom: 32,
+    },
+    inputContainer: {
+        marginBottom: 16,
     },
     label: {
         fontSize: 14,
         color: '#333',
-        fontWeight: '600',
         marginBottom: 8,
-        marginLeft: 4,
+        fontWeight: '600',
     },
     input: {
         backgroundColor: '#FFF',
         borderWidth: 1,
-        borderColor: '#DDD',
+        borderColor: '#EAEAEA',
         borderRadius: 8,
-        padding: 16,
+        padding: 14,
         fontSize: 16,
-        marginBottom: 20,
-    },
-    // Novos estilos para o campo de senha com ícone
-    passwordContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: '#FFF',
-        borderWidth: 1,
-        borderColor: '#DDD',
-        borderRadius: 8,
-        marginBottom: 20,
-        paddingHorizontal: 16, // Padding lateral no container
-    },
-    passwordInput: {
-        flex: 1, // Ocupa todo o espaço sobrando
-        paddingVertical: 16,
-        fontSize: 16,
-        // Removemos padding horizontal e bordas do input pois o container já tem
-    },
-    eyeIcon: {
-        padding: 4, // Área de toque maior
     },
     button: {
         backgroundColor: '#007AFF',
         padding: 16,
         borderRadius: 8,
         alignItems: 'center',
-        marginTop: 8,
+        marginTop: 16,
     },
     buttonText: {
         color: '#FFF',
         fontSize: 16,
         fontWeight: 'bold',
     },
-    forgotButton: {
-        marginTop: 20,
-        alignItems: 'center',
-    },
-    forgotText: {
-        color: '#007AFF',
-        fontSize: 14,
-    },
-
     registerButton: {
         marginTop: 24,
         alignItems: 'center',

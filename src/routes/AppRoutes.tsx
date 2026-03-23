@@ -7,30 +7,41 @@ import { ServicesScreen } from '../screens/ServicesScreen';
 import { ProfessionalsScreen } from '../screens/ProfessionalsScreen';
 import { SchedulingScreen } from '../screens/SchedulingScreen';
 import { useAuth } from '../context/AuthContext';
-import { View, Text } from 'react-native';
+import { View, Text, Alert, TouchableOpacity} from 'react-native';
+import {MyScheduleScreen} from "../screens/MyScheduleScreen";
+import { AdminServicesScreen } from '../screens/admin/AdminServiceScreen';
 
 const Tab = createBottomTabNavigator();
 
-// Telas Placeholder
-function AgendaScreen() { return <View style={{flex:1, justifyContent:'center', alignItems:'center'}}><Text>Minha Agenda</Text></View>; }
-function AdminScreen() { return <View style={{flex:1, justifyContent:'center', alignItems:'center'}}><Text>Painel Admin</Text></View>; }
-
 export function AppRoutes() {
-    const { user } = useAuth();
+    const { user, signOut } = useAuth();
+    const isAdmin = user?.role === 'ROLE_ADMIN';
 
-    // Verifica se é chefe (Admin ou Profissional)
-    const isAdminOrPro = user?.role === 'ROLE_ADMIN' || user?.role === 'ROLE_PROFISSIONAL';
+    const handleLogout = () => {
+        Alert.alert('Sair da Conta', 'Tem certeza que deseja sair do aplicativo?', [
+            { text: 'Cancelar', style: 'cancel' },
+            {
+                text: 'Sair',
+                style: 'destructive',
+                onPress: () => signOut()
+            }
+        ]);
+    };
 
     return (
         <Tab.Navigator
             screenOptions={{
-                headerShown: false, // Remove o cabeçalho padrão
-                tabBarActiveTintColor: '#007AFF', // Cor do ícone ativo
-                tabBarInactiveTintColor: 'gray',  // Cor do ícone inativo
-                tabBarStyle: {
-                    paddingBottom: 5,
-                    paddingTop: 5,
-                }
+                headerShown: true,
+                headerStyle: { backgroundColor: '#FFF' },
+                headerTintColor: '#333',
+                tabBarActiveTintColor: '#007AFF',
+                tabBarInactiveTintColor: 'gray',
+
+                headerRight: () => (
+                    <TouchableOpacity onPress={handleLogout} style={{ marginRight: 15 }}>
+                        <Ionicons name="log-out-outline" size={26} color="#FF3B30" />
+                    </TouchableOpacity>
+                )
             }}
         >
             <Tab.Screen
@@ -66,28 +77,13 @@ export function AppRoutes() {
 
             <Tab.Screen
                 name="Minha Agenda"
-                component={AgendaScreen}
+                component={MyScheduleScreen}
                 options={{
                     tabBarIcon: ({ color, size }) => (
-                        <Ionicons name="calendar" size={size} color={color} />
+                        <Ionicons name="list" size={size} color={color} />
                     )
                 }}
             />
-
-            {/* Renderização Condicional: Só mostra esta aba se for Admin/Pro */}
-            {isAdminOrPro && (
-                <Tab.Screen
-                    name="Admin"
-                    component={AdminScreen}
-                    options={{
-                        tabBarIcon: ({ color, size }) => (
-                            <Ionicons name="settings" size={size} color={color} />
-                        ),
-                        tabBarLabel: 'Gestão' // Nome que aparece embaixo do ícone
-                    }}
-                />
-            )}
-
         </Tab.Navigator>
     );
 }
