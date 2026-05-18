@@ -1,147 +1,157 @@
 import React, { useState, useEffect } from 'react';
-import {
-    View, Text, StyleSheet, FlatList, ActivityIndicator,
-    TouchableOpacity, Alert
-} from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, FlatList, ActivityIndicator, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
 import api from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 
-interface AgendamentoProfissional {
-    id: number;
-    dataInicio: string;
-    status: string;
-    servico: { nome_servico: string; preco: number; };
-    cliente: { usuario: { nome: string; } }; // Repare que aqui vemos o CLIENTE, e não o profissional
-}
-
-export function ProfessionalHomeScreen() {
-    const navigation = useNavigation();
+export function ProfessionalHomeScreen({ navigation }: any) {
     const { user } = useAuth();
-    const [agendamentos, setAgendamentos] = useState<AgendamentoProfissional[]>([]);
+    const [agendamentos, setAgendamentos] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         const unsubscribe = navigation.addListener('focus', () => {
-            buscarAgendaDoProfissional();
+            buscarAgendaDeHoje();
         });
-        buscarAgendaDoProfissional();
         return unsubscribe;
     }, [navigation]);
 
-    async function buscarAgendaDoProfissional() {
+    async function buscarAgendaDeHoje() {
         setLoading(true);
         try {
-            // ATENÇÃO: Precisaremos criar este endpoint no Java no próximo passo!
             const response = await api.get('/agendamentos/agenda-profissional');
             setAgendamentos(response.data);
         } catch (error) {
-            Alert.alert("Erro", "Não foi possível carregar a sua agenda.");
+            Alert.alert('Erro', 'Não foi possível carregar a agenda de hoje.');
         } finally {
             setLoading(false);
         }
     }
 
-    // --- AÇÕES DO PROFISSIONAL ---
-
-    const alterarStatus = async (id: number, novoStatus: string, endpoint: string) => {
-        setLoading(true);
-        try {
-            // Chamaremos endpoints específicos como /confirmar ou /concluir
-            await api.put(`/agendamentos/${id}/${endpoint}`);
-            buscarAgendaDoProfissional();
-        } catch (error: any) {
-            const msg = typeof error.response?.data === 'string' ? error.response.data : "Ocorreu um erro ao processar sua solicitação.";
-            Alert.alert("Erro", msg);
-            setLoading(false);
-        }
-    };
-
-    const confirmarAgendamento = (id: number) => {
-        Alert.alert("Confirmar", "Deseja confirmar este horário com o cliente?", [
-            { text: "Não", style: "cancel" },
-            { text: "Sim, Confirmar", onPress: () => alterarStatus(id, 'CONFIRMADO', 'confirmar') }
+    // --- FUNÇÕES DE ALTERAÇÃO DE STATUS ---
+    async function handleConfirmar(id: number) {
+        Alert.alert('Confirmar', 'Deseja confirmar este agendamento?', [
+            { text: 'Não', style: 'cancel' },
+            { text: 'Sim', onPress: async () => {
+                    try {
+                        await api.put(`/agendamentos/${id}/confirmar`);
+                        buscarAgendaDeHoje();
+                    } catch (error) {
+                        Alert.alert('Erro', 'Não foi possível confirmar.');
+                    }
+                }
+            }
         ]);
-    };
+    }
 
-    const concluirAgendamento = (id: number) => {
-        Alert.alert("Finalizar Serviço", "O serviço foi finalizado com sucesso?", [
-            { text: "Ainda não", style: "cancel" },
-            { text: "Sim, Concluir", onPress: () => alterarStatus(id, 'CONCLUIDO', 'concluir') }
+    async function handleConcluir(id: number) {
+        Alert.alert('Concluir', 'Deseja finalizar este atendimento?', [
+            { text: 'Não', style: 'cancel' },
+            { text: 'Sim', onPress: async () => {
+                    try {
+                        await api.put(`/agendamentos/${id}/concluir`);
+                        buscarAgendaDeHoje();
+                    } catch (error) {
+                        Alert.alert('Erro', 'Não foi possível concluir.');
+                    }
+                }
+            }
         ]);
-    };
+    }
 
-    // --- RENDERIZAÇÃO ---
-
-    const formatarHora = (dataIso: string) => {
-        if (!dataIso) return '--:--';
-        const dataObj = new Date(dataIso);
-        return `${String(dataObj.getHours()).padStart(2, '0')}:${String(dataObj.getMinutes()).padStart(2, '0')}`;
-    };
-
-    const renderItem = ({ item }: { item: AgendamentoProfissional }) => {
-        const status = item.status?.toUpperCase();
-
-        return (
-            <View style={styles.card}>
-                <View style={styles.timeColumn}>
-                    <Text style={styles.timeText}>{formatarHora(item.dataInicio)}</Text>
-                    <View style={[styles.statusDot,
-                        status === 'PENDENTE' ? {backgroundColor: '#FFA500'} :
-                            status === 'CONFIRMADO' ? {backgroundColor: '#34C759'} :
-                                status === 'CONCLUIDO' ? {backgroundColor: '#007AFF'} : {backgroundColor: '#FF3B30'}
-                    ]} />
-                </View>
-
-                <View style={styles.contentColumn}>
-                    <Text style={styles.clientName}>{item.cliente?.usuario?.nome || 'Cliente Desconhecido'}</Text>
-                    <Text style={styles.serviceName}>{item.servico?.nome_servico}</Text>
-
-                    <View style={styles.actionRow}>
-                        {status === 'PENDENTE' && (
-                            <TouchableOpacity style={[styles.actionButton, styles.btnConfirm]} onPress={() => confirmarAgendamento(item.id)}>
-                                <Text style={styles.btnTextConfirm}>Confirmar</Text>
-                            </TouchableOpacity>
-                        )}
-
-                        {status === 'CONFIRMADO' && (
-                            <TouchableOpacity style={[styles.actionButton, styles.btnComplete]} onPress={() => concluirAgendamento(item.id)}>
-                                <Text style={styles.btnTextComplete}>Finalizar Serviço</Text>
-                            </TouchableOpacity>
-                        )}
-
-                        {(status === 'CONCLUIDO' || status === 'CANCELADO') && (
-                            <Text style={styles.statusLabel}>{status}</Text>
-                        )}
-                    </View>
-                </View>
-            </View>
+    // NOVO: Função para o profissional cancelar / assinalar falta
+    async function handleCancelar(id: number) {
+        Alert.alert(
+            'Cancelar Atendimento',
+            'Tem a certeza que deseja cancelar este agendamento? Esta ação não pode ser desfeita.',
+            [
+                { text: 'Voltar', style: 'cancel' },
+                {
+                    text: 'Sim, Cancelar',
+                    style: 'destructive',
+                    onPress: async () => {
+                        try {
+                            await api.put(`/agendamentos/${id}/cancelar`);
+                            buscarAgendaDeHoje();
+                        } catch (error) {
+                            Alert.alert('Erro', 'Não foi possível cancelar o agendamento.');
+                        }
+                    }
+                }
+            ]
         );
-    };
+    }
 
     return (
         <View style={styles.container}>
             <View style={styles.header}>
-                <Text style={styles.greeting}>Olá, {user?.nome}</Text>
-                <Text style={styles.subtitle}>Aqui estão os seus clientes de hoje</Text>
+                <View style={{ flex: 1 }}>
+                    <Text style={styles.greeting}>Olá, {user?.nome}</Text>
+                    <Text style={styles.subtitle}>Os seus clientes de hoje</Text>
+                </View>
+
+                <TouchableOpacity
+                    style={styles.btnVerTodos}
+                    onPress={() => navigation.navigate('AgendaCompleta')}
+                >
+                    <Ionicons name="calendar-outline" size={24} color="#007AFF" />
+                    <Text style={styles.btnVerTodosText}>Ver Todos</Text>
+                </TouchableOpacity>
             </View>
 
             {loading ? (
                 <View style={styles.center}><ActivityIndicator size="large" color="#007AFF" /></View>
             ) : agendamentos.length === 0 ? (
                 <View style={styles.center}>
-                    <Ionicons name="cafe-outline" size={64} color="#ccc" />
-                    <Text style={styles.emptyText}>Você não tem agendamentos para hoje.</Text>
+                    <Ionicons name="cafe-outline" size={60} color="#CCC" />
+                    <Text style={styles.emptyText}>A sua agenda está livre hoje!</Text>
                 </View>
             ) : (
                 <FlatList
                     data={agendamentos}
                     keyExtractor={(item) => String(item.id)}
-                    renderItem={renderItem}
                     contentContainerStyle={styles.listContainer}
-                    refreshing={loading}
-                    onRefresh={buscarAgendaDoProfissional}
+                    renderItem={({ item }) => {
+                        const isFinalizadoOuCancelado = item.status === 'CONCLUIDO' || item.status === 'CANCELADO';
+
+                        return (
+                            <View style={[styles.card, isFinalizadoOuCancelado && styles.cardFinalizado]}>
+                                <View style={styles.cardInfo}>
+                                    <Text style={styles.clientName}>{item.cliente?.nome || 'Cliente'}</Text>
+                                    <Text style={styles.serviceName}>
+                                        {item.servico?.nome_servico} - {item.dataInicio?.split('T')[1]?.substring(0, 5) || ''}
+                                    </Text>
+                                    <Text style={[
+                                        styles.statusBadge,
+                                        item.status === 'CANCELADO' && { color: '#FF3B30' },
+                                        item.status === 'CONCLUIDO' && { color: '#34C759' }
+                                    ]}>
+                                        {item.status}
+                                    </Text>
+                                </View>
+
+                                {!isFinalizadoOuCancelado && (
+                                    <View style={styles.actionButtons}>
+                                        {item.status === 'PENDENTE' && (
+                                            <TouchableOpacity style={styles.btnConfirmar} onPress={() => handleConfirmar(item.id)}>
+                                                <Ionicons name="thumbs-up" size={20} color="#FFF" />
+                                            </TouchableOpacity>
+                                        )}
+                                        {item.status === 'CONFIRMADO' && (
+                                            <TouchableOpacity style={styles.btnConcluir} onPress={() => handleConcluir(item.id)}>
+                                                <Ionicons name="checkmark-done" size={20} color="#FFF" />
+                                            </TouchableOpacity>
+                                        )}
+
+                                        {/* NOVO BOTÃO DE CANCELAR (Disponível em PENDENTE e CONFIRMADO) */}
+                                        <TouchableOpacity style={styles.btnCancelar} onPress={() => handleCancelar(item.id)}>
+                                            <Ionicons name="close" size={20} color="#FFF" />
+                                        </TouchableOpacity>
+                                    </View>
+                                )}
+                            </View>
+                        );
+                    }}
                 />
             )}
         </View>
@@ -151,29 +161,27 @@ export function ProfessionalHomeScreen() {
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#F5F5F5' },
     center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-    header: { padding: 20, backgroundColor: '#FFF', borderBottomWidth: 1, borderBottomColor: '#EAEAEA' },
+    header: {
+        padding: 20, backgroundColor: '#FFF', borderBottomWidth: 1, borderBottomColor: '#EAEAEA',
+        flexDirection: 'row', alignItems: 'center'
+    },
     greeting: { fontSize: 24, fontWeight: 'bold', color: '#333' },
     subtitle: { fontSize: 16, color: '#666', marginTop: 4 },
+    btnVerTodos: { alignItems: 'center', justifyContent: 'center', backgroundColor: '#E5F1FF', paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8 },
+    btnVerTodosText: { fontSize: 12, color: '#007AFF', fontWeight: 'bold', marginTop: 4 },
+
     listContainer: { padding: 16 },
+    card: { flexDirection: 'row', backgroundColor: '#FFF', padding: 15, borderRadius: 8, marginBottom: 10, elevation: 1, alignItems: 'center', justifyContent: 'space-between' },
+    cardFinalizado: { opacity: 0.6, backgroundColor: '#FAFAFA' },
+    cardInfo: { flex: 1 },
+    clientName: { fontSize: 16, fontWeight: 'bold', color: '#333' },
+    serviceName: { fontSize: 14, color: '#666', marginTop: 4 },
+    statusBadge: { fontSize: 12, color: '#007AFF', fontWeight: 'bold', marginTop: 6 },
 
-    card: { flexDirection: 'row', backgroundColor: '#FFF', borderRadius: 12, padding: 16, marginBottom: 12, elevation: 2 },
-    timeColumn: { width: 60, alignItems: 'center', borderRightWidth: 1, borderRightColor: '#EAEAEA', paddingRight: 10, marginRight: 10 },
-    timeText: { fontSize: 18, fontWeight: 'bold', color: '#333' },
-    statusDot: { width: 12, height: 12, borderRadius: 6, marginTop: 8 },
+    actionButtons: { flexDirection: 'row', gap: 10 },
+    btnConfirmar: { backgroundColor: '#007AFF', padding: 10, borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
+    btnConcluir: { backgroundColor: '#34C759', padding: 10, borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
+    btnCancelar: { backgroundColor: '#FF3B30', padding: 10, borderRadius: 8, justifyContent: 'center', alignItems: 'center' }, // ESTILO DO NOVO BOTÃO
 
-    contentColumn: { flex: 1, justifyContent: 'center' },
-    clientName: { fontSize: 18, fontWeight: 'bold', color: '#333' },
-    serviceName: { fontSize: 14, color: '#666', marginBottom: 10 },
-
-    actionRow: { flexDirection: 'row', alignItems: 'center' },
-    actionButton: { paddingVertical: 8, paddingHorizontal: 16, borderRadius: 6, borderWidth: 1 },
-
-    btnConfirm: { borderColor: '#34C759', backgroundColor: '#E8F8F0' },
-    btnTextConfirm: { color: '#34C759', fontWeight: 'bold' },
-
-    btnComplete: { borderColor: '#007AFF', backgroundColor: '#E5F1FF' },
-    btnTextComplete: { color: '#007AFF', fontWeight: 'bold' },
-
-    statusLabel: { fontSize: 14, fontWeight: 'bold', color: '#999', fontStyle: 'italic' },
-    emptyText: { fontSize: 16, color: '#666', marginTop: 16 }
+    emptyText: { marginTop: 10, color: '#666', fontSize: 16 }
 });

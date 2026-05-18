@@ -18,7 +18,6 @@ LocaleConfig.locales['pt-br'] = {
 };
 LocaleConfig.defaultLocale = 'pt-br';
 
-// --- Tipagens ---
 interface Servico { id: number; nome_servico: string; preco: number; duracaoMin: number; }
 interface Profissional { id: number; usuario: { nome: string }; }
 
@@ -29,19 +28,33 @@ export function SchedulingScreen({ navigation }: any) {
 
     const [servicos, setServicos] = useState<Servico[]>([]);
     const [profissionais, setProfissionais] = useState<Profissional[]>([]);
-    const horarios = ['09:00', '10:00', '11:00', '14:00', '15:00', '16:00', '17:00'];
 
     const [servicoSelecionado, setServicoSelecionado] = useState<Servico | null>(null);
     const [profissionalSelecionado, setProfissionalSelecionado] = useState<Profissional | null>(null);
-    const [dataSelecionada, setDataSelecionada] = useState<string>(''); // Formato "YYYY-MM-DD"
+    const [dataSelecionada, setDataSelecionada] = useState<string>('');
     const [horarioSelecionado, setHorarioSelecionado] = useState<string>('');
 
-    // Pega a data de hoje formatada (YYYY-MM-DD) para bloquear dias passados no calendário
-    const dataHoje = new Date().toISOString().split('T')[0];
+    const [horariosDisponiveis, setHorariosDisponiveis] = useState<string[]>([]);
+    const [loadingHorarios, setLoadingHorarios] = useState(false);
+
+    // --- CÁLCULO DAS DATAS LIMITES ---
+    const dataHojeObj = new Date();
+    const dataHoje = dataHojeObj.toISOString().split('T')[0];
+
+    // Calcula exatamente 1 ano no futuro
+    const dataAnoQueVemObj = new Date();
+    dataAnoQueVemObj.setFullYear(dataAnoQueVemObj.getFullYear() + 1);
+    const dataMaxima = dataAnoQueVemObj.toISOString().split('T')[0];
 
     useEffect(() => {
         buscarDados();
     }, []);
+
+    useEffect(() => {
+        if (dataSelecionada && profissionalSelecionado && servicoSelecionado) {
+            buscarHorariosDaAPI();
+        }
+    }, [dataSelecionada, profissionalSelecionado, servicoSelecionado]);
 
     async function buscarDados() {
         setLoading(true);
@@ -52,9 +65,28 @@ export function SchedulingScreen({ navigation }: any) {
             setServicos(resServicos.data);
             setProfissionais(resProfissionais.data);
         } catch (error) {
-            Alert.alert('Erro', 'Não foi possível carregar os dados.');
+            Alert.alert('Erro', 'Não foi possível carregar o catálogo.');
         } finally {
             setLoading(false);
+        }
+    }
+
+    async function buscarHorariosDaAPI() {
+        setLoadingHorarios(true);
+        setHorarioSelecionado(''); // Limpa o horário se o cliente mudar de dia
+        try {
+            const response = await api.get('/agendamentos/horarios-disponiveis', {
+                params: {
+                    data: dataSelecionada,
+                    profissionalId: profissionalSelecionado?.id,
+                    duracao: servicoSelecionado?.duracaoMin
+                }
+            });
+            setHorariosDisponiveis(response.data);
+        } catch (error) {
+            Alert.alert('Erro', 'Não foi possível carregar os horários disponíveis.');
+        } finally {
+            setLoadingHorarios(false);
         }
     }
 
@@ -63,13 +95,12 @@ export function SchedulingScreen({ navigation }: any) {
 
         setLoading(true);
         try {
-            // Como a data já vem do calendário em YYYY-MM-DD, é só juntar com a hora!
-            const dataHoraInicioIso = `${dataSelecionada}T${horarioSelecionado}:00`;
+            const dataInicioIso = `${dataSelecionada}T${horarioSelecionado}:00`;
 
             const payload = {
                 servicoId: servicoSelecionado.id,
                 profissionalId: profissionalSelecionado.id,
-                dataInicio: dataHoraInicioIso,
+                dataInicio: dataInicioIso,
                 clienteId: user?.id
             };
 
@@ -80,11 +111,12 @@ export function SchedulingScreen({ navigation }: any) {
                 onPress: () => {
                     setStep(1); setServicoSelecionado(null); setProfissionalSelecionado(null);
                     setDataSelecionada(''); setHorarioSelecionado('');
-                    navigation.navigate('Agenda'); // Agora manda direto para a agenda para ele ver o resultado!
+                    navigation.navigate('Minha Agenda');
                 }
             }]);
         } catch (error: any) {
-            Alert.alert('Ops! Algo deu errado', 'Erro ao processar o agendamento.');
+            const msg = typeof error.response?.data === 'string' ? error.response.data : 'Erro ao processar o agendamento.';
+            Alert.alert('Ops!', msg);
         } finally {
             setLoading(false);
         }
@@ -103,7 +135,10 @@ export function SchedulingScreen({ navigation }: any) {
                             style={[styles.cardItem, isSelected && styles.cardItemSelected]}
                             onPress={() => setServicoSelecionado(item)}
                         >
-                            <Text style={[styles.cardTitle, isSelected && styles.textSelected]}>{item.nome_servico}</Text>
+                            <View>
+                                <Text style={[styles.cardTitle, isSelected && styles.textSelected]}>{item.nome_servico}</Text>
+                                <Text style={styles.cardDuration}><Ionicons name="time-outline"/> {item.duracaoMin} min</Text>
+                            </View>
                             <Text style={styles.cardPrice}>R$ {item.preco.toFixed(2).replace('.', ',')}</Text>
                         </TouchableOpacity>
                     );
@@ -153,12 +188,15 @@ export function SchedulingScreen({ navigation }: any) {
         <ScrollView style={styles.stepContainer} showsVerticalScrollIndicator={false}>
             <Text style={styles.stepTitle}>3. Escolha Data e Horário</Text>
 
-            {/* O NOVO CALENDÁRIO */}
             <Calendar
-                minDate={dataHoje} // Bloqueia dias no passado
+                minDate={dataHoje}
+                maxDate={dataMaxima}
                 onDayPress={(day: any) => {
-                    setDataSelecionada(day.dateString); // Salva no formato YYYY-MM-DD
-                    setHorarioSelecionado(''); // Reseta o horário se mudar de dia
+                    // Bloqueia Domingo (0) e Segunda (1) no Front-end visualmente
+                    const dateObj = new Date(day.dateString + 'T00:00:00');
+                    const diaDaSemana = dateObj.getDay();
+
+                    setDataSelecionada(day.dateString);
                 }}
                 markedDates={{
                     [dataSelecionada]: { selected: true, selectedColor: '#007AFF' }
@@ -175,20 +213,29 @@ export function SchedulingScreen({ navigation }: any) {
             {dataSelecionada ? (
                 <>
                     <Text style={styles.sectionLabel}>Horários para {dataSelecionada.split('-').reverse().join('/')}:</Text>
-                    <View style={styles.gridContainer}>
-                        {horarios.map((hora) => (
-                            <TouchableOpacity
-                                key={hora}
-                                style={[styles.gridItem, horarioSelecionado === hora && styles.pillSelected]}
-                                onPress={() => setHorarioSelecionado(hora)}
-                            >
-                                <Text style={[styles.pillText, horarioSelecionado === hora && styles.textSelected]}>{hora}</Text>
-                            </TouchableOpacity>
-                        ))}
-                    </View>
+
+                    {loadingHorarios ? (
+                        <View style={{ padding: 20 }}><ActivityIndicator size="large" color="#007AFF" /></View>
+                    ) : (
+                        <View style={styles.gridContainer}>
+                            {horariosDisponiveis.length > 0 ? (
+                                horariosDisponiveis.map((hora) => (
+                                    <TouchableOpacity
+                                        key={hora}
+                                        style={[styles.gridItem, horarioSelecionado === hora && styles.pillSelected]}
+                                        onPress={() => setHorarioSelecionado(hora)}
+                                    >
+                                        <Text style={[styles.pillText, horarioSelecionado === hora && styles.textSelected]}>{hora}</Text>
+                                    </TouchableOpacity>
+                                ))
+                            ) : (
+                                <Text style={styles.helperText}>Não há mais horários disponíveis para este dia com este profissional.</Text>
+                            )}
+                        </View>
+                    )}
                 </>
             ) : (
-                <Text style={styles.helperText}>Selecione um dia no calendário acima para ver os horários.</Text>
+                <Text style={styles.helperText}>Selecione um dia no calendário acima para ver os horários livres.</Text>
             )}
 
             <View style={[styles.buttonRow, { marginTop: 30 }]}>
@@ -208,11 +255,10 @@ export function SchedulingScreen({ navigation }: any) {
             <Text style={styles.stepTitle}>4. Confirme seu Agendamento</Text>
             <View style={styles.resumeCard}>
                 <Text style={styles.resumeLabel}>Serviço:</Text>
-                <Text style={styles.resumeValue}>{servicoSelecionado?.nome_servico}</Text>
+                <Text style={styles.resumeValue}>{servicoSelecionado?.nome_servico} ({servicoSelecionado?.duracaoMin} min)</Text>
                 <Text style={styles.resumeLabel}>Profissional:</Text>
                 <Text style={styles.resumeValue}>{profissionalSelecionado?.usuario?.nome}</Text>
                 <Text style={styles.resumeLabel}>Data e Hora:</Text>
-                {/* Formatação rápida de YYYY-MM-DD para exibição final */}
                 <Text style={styles.resumeValue}>
                     {dataSelecionada.split('-').reverse().join('/')} às {horarioSelecionado}
                 </Text>
@@ -256,6 +302,7 @@ const styles = StyleSheet.create({
     cardItem: { backgroundColor: '#FFF', padding: 20, borderRadius: 12, marginBottom: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderWidth: 2, borderColor: 'transparent', elevation: 2 },
     cardItemSelected: { borderColor: '#007AFF', backgroundColor: '#E5F1FF' },
     cardTitle: { fontSize: 18, fontWeight: '600', color: '#333' },
+    cardDuration: { fontSize: 12, color: '#666', marginTop: 4 },
     cardPrice: { fontSize: 18, fontWeight: 'bold', color: '#007AFF' },
     textSelected: { color: '#007AFF' },
     buttonRow: { flexDirection: 'row', marginTop: 10, marginBottom: 20 },
@@ -266,11 +313,8 @@ const styles = StyleSheet.create({
     confirmButtonText: { color: '#FFF', fontSize: 18, fontWeight: 'bold' },
     backButton: { backgroundColor: '#FFF', padding: 18, borderRadius: 12, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#CCC', flex: 1 },
     backButtonText: { color: '#666', fontSize: 18, fontWeight: 'bold' },
-
-    // Novos Estilos para o Calendário
     calendar: { borderRadius: 12, elevation: 2, marginBottom: 20, paddingBottom: 10 },
     helperText: { textAlign: 'center', color: '#666', marginTop: 20, fontStyle: 'italic' },
-
     sectionLabel: { fontSize: 18, fontWeight: '600', color: '#333', marginTop: 5, marginBottom: 15 },
     gridContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
     gridItem: { backgroundColor: '#FFF', paddingVertical: 15, width: '31%', alignItems: 'center', borderRadius: 12, borderWidth: 1, borderColor: '#CCC' },

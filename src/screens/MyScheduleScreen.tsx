@@ -54,7 +54,7 @@ export function MyScheduleScreen() {
                     onPress: async () => {
                         setLoading(true);
                         try {
-                            await api.put(`/agendamentos/${id}/cancelar`);
+                            await api.put(`/agendamentos/${id}/cliente-cancelar`);
                             Alert.alert("Sucesso", "Agendamento cancelado.");
                             buscarMeusAgendamentos();
                         } catch (error: any) {

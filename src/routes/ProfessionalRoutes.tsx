@@ -3,14 +3,25 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import { TouchableOpacity, Alert } from 'react-native';
 import { useAuth } from '../context/AuthContext';
-
+import { AgendaScreen } from '../screens/AgendaScreen';
 import { ProfessionalHomeScreen } from '../screens/professional/ProfessionalHomeScreen';
 import { AdminServicesScreen } from '../screens/admin/AdminServiceScreen';
 import { AdminClientsScreen } from '../screens/admin/AdminClientScreen';
 import { AdminProfessionalScreen } from '../screens/admin/AdminProfessionalScreen';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 
 const Tab = createBottomTabNavigator();
+const Stack = createNativeStackNavigator();
+
+function AgendaStack() {
+    return (
+        <Stack.Navigator screenOptions={{ headerShown: false }}>
+            <Stack.Screen name="AgendaHoje" component={ProfessionalHomeScreen} />
+            <Stack.Screen name="AgendaCompleta" component={AgendaScreen} />
+        </Stack.Navigator>
+    );
+}
 
 export function ProfessionalRoutes() {
     const { user, signOut } = useAuth();
@@ -40,7 +51,7 @@ export function ProfessionalRoutes() {
         >
             <Tab.Screen
                 name="Minha Agenda"
-                component={ProfessionalHomeScreen}
+                component={AgendaStack}
                 options={{
                     tabBarIcon: ({ color, size }) => (
                         <Ionicons name="calendar" size={size} color={color} />
@@ -48,7 +59,6 @@ export function ProfessionalRoutes() {
                 }}
             />
 
-            {}
             {isAdmin && (
                 <>
                     <Tab.Screen

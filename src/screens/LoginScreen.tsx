@@ -98,6 +98,14 @@ export function LoginScreen({ navigation }: any) {
                     )}
                 </TouchableOpacity>
 
+                {/* --- NOVO BOTÃO DE ESQUECI A SENHA AQUI --- */}
+                <TouchableOpacity
+                    style={styles.forgotPasswordButton}
+                    onPress={() => navigation.navigate('ForgotPassword')}
+                >
+                    <Text style={styles.forgotPasswordText}>Esqueci minha senha</Text>
+                </TouchableOpacity>
+
                 <TouchableOpacity
                     style={styles.registerButton}
                     onPress={() => navigation.navigate('Register')}
@@ -159,6 +167,18 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontWeight: 'bold',
     },
+
+    /* --- NOVOS ESTILOS DO BOTÃO --- */
+    forgotPasswordButton: {
+        marginTop: 16,
+        alignItems: 'center',
+    },
+    forgotPasswordText: {
+        color: '#007AFF',
+        fontSize: 14,
+        fontWeight: '600',
+    },
+
     registerButton: {
         marginTop: 24,
         alignItems: 'center',

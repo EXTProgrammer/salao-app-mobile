@@ -9,6 +9,7 @@ import { SchedulingScreen } from '../screens/SchedulingScreen';
 import { useAuth } from '../context/AuthContext';
 import { View, Text, Alert, TouchableOpacity} from 'react-native';
 import {MyScheduleScreen} from "../screens/MyScheduleScreen";
+import {ProfileScreen} from "../screens/ProfileScreen";
 import { AdminServicesScreen } from '../screens/admin/AdminServiceScreen';
 
 const Tab = createBottomTabNavigator();
@@ -78,6 +79,16 @@ export function AppRoutes() {
             <Tab.Screen
                 name="Minha Agenda"
                 component={MyScheduleScreen}
+                options={{
+                    tabBarIcon: ({ color, size }) => (
+                        <Ionicons name="list" size={size} color={color} />
+                    )
+                }}
+            />
+
+            <Tab.Screen
+                name="Perfil"
+                component={ProfileScreen}
                 options={{
                     tabBarIcon: ({ color, size }) => (
                         <Ionicons name="list" size={size} color={color} />
