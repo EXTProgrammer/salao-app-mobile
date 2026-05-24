@@ -6,9 +6,12 @@ import api from '../services/api';
 interface Agendamento {
     id: number;
     dataInicio: string;
-    servico: { nome_servico: string; preco: number };
-    cliente: { nome: string; telefone: string };
     status: string;
+    servico: { nome_servico: string; preco: number };
+    cliente: { nome: string; telefone: string } | null; // Pode ser null
+    nomeClienteAvulso?: string; // Novo campo
+    telefoneClienteAvulso?: string; // Novo campo
+    profissional: { usuario: { nome: string; } };
 }
 
 export function AgendaScreen({ navigation }: any) {
@@ -108,12 +111,25 @@ export function AgendaScreen({ navigation }: any) {
         const horario = item.dataInicio.split('T')[1].substring(0, 5);
         const isFinalizadoOuCancelado = item.status === 'CONCLUIDO' || item.status === 'CANCELADO';
 
+        const nomeExibido = item.cliente
+            ? item.cliente.nome
+            : (item.nomeClienteAvulso || 'Cliente Avulso');
+
+        const telefoneExibido = item.cliente
+            ? item.cliente.telefone
+            : (item.telefoneClienteAvulso || '');
+
         return (
             <View style={[styles.card, isFinalizadoOuCancelado && styles.cardFinalizado]}>
                 <View style={styles.timeColumn}><Text style={styles.timeText}>{horario}</Text></View>
                 <View style={styles.detailsColumn}>
-                    <Text style={styles.clientName}>{item.cliente?.nome || 'Cliente'}</Text>
+                    <Text style={styles.clientName}>{nomeExibido}</Text>
                     <Text style={styles.serviceName}>{item.servico?.nome_servico}</Text>
+                    {telefoneExibido !== '' && (
+                        <Text style={styles.clientPhone}>
+                            <Ionicons name="logo-whatsapp" size={12} color="#25D366" /> {telefoneExibido}
+                        </Text>
+                    )}
                     <Text style={[
                         styles.statusBadge,
                         item.status === 'CANCELADO' && { color: '#FF3B30' },
@@ -136,7 +152,6 @@ export function AgendaScreen({ navigation }: any) {
                             </TouchableOpacity>
                         )}
 
-                        {/* NOVO BOTÃO DE CANCELAR */}
                         <TouchableOpacity style={styles.cancelButton} onPress={() => handleCancelar(item.id)}>
                             <Ionicons name="close" size={24} color="#FFF" />
                         </TouchableOpacity>
@@ -178,6 +193,13 @@ export function AgendaScreen({ navigation }: any) {
                     contentContainerStyle={styles.listContent}
                 />
             )}
+
+            <TouchableOpacity
+                style={styles.fab}
+                onPress={() => navigation.navigate('NovaMarcacao')}
+            >
+                <Ionicons name="add" size={32} color="#FFF" />
+            </TouchableOpacity>
         </View>
     );
 }
@@ -208,6 +230,7 @@ const styles = StyleSheet.create({
     clientName: { fontSize: 16, fontWeight: 'bold', color: '#333' },
     serviceName: { fontSize: 14, color: '#666' },
     statusBadge: { fontSize: 12, color: '#007AFF', fontWeight: 'bold', marginTop: 4 },
+    clientPhone: { color: '#25D366', fontSize: 12, marginTop: 4 },
 
     actionColumn: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 10 },
     confirmButton: { backgroundColor: '#007AFF', width: 45, height: 45, borderRadius: 23, justifyContent: 'center', alignItems: 'center' },
@@ -216,5 +239,22 @@ const styles = StyleSheet.create({
     statusText: { fontSize: 12, fontWeight: 'bold', color: '#666' },
 
     emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-    emptyText: { marginTop: 15, color: '#666' }
+    emptyText: { marginTop: 15, color: '#666' },
+
+    fab: {
+        position: 'absolute',
+        bottom: 20,
+        right: 20,
+        backgroundColor: '#007AFF',
+        width: 60,
+        height: 60,
+        borderRadius: 30,
+        justifyContent: 'center',
+        alignItems: 'center',
+        elevation: 5,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.3,
+        shadowRadius: 3
+    }
 });

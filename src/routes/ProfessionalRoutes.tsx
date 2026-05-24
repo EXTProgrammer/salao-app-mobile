@@ -9,6 +9,7 @@ import { AdminServicesScreen } from '../screens/admin/AdminServiceScreen';
 import { AdminClientsScreen } from '../screens/admin/AdminClientScreen';
 import { AdminProfessionalScreen } from '../screens/admin/AdminProfessionalScreen';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import {AdminScheduleScreen} from "../screens/admin/AdminScheduleScreen";
 
 
 const Tab = createBottomTabNavigator();
@@ -19,6 +20,7 @@ function AgendaStack() {
         <Stack.Navigator screenOptions={{ headerShown: false }}>
             <Stack.Screen name="AgendaHoje" component={ProfessionalHomeScreen} />
             <Stack.Screen name="AgendaCompleta" component={AgendaScreen} />
+            <Stack.Screen name="NovaMarcacao" component={AdminScheduleScreen} />
         </Stack.Navigator>
     );
 }
@@ -49,18 +51,19 @@ export function ProfessionalRoutes() {
                 )
             }}
         >
-            <Tab.Screen
-                name="Minha Agenda"
-                component={AgendaStack}
-                options={{
-                    tabBarIcon: ({ color, size }) => (
-                        <Ionicons name="calendar" size={size} color={color} />
-                    )
-                }}
-            />
 
             {isAdmin && (
                 <>
+                    <Tab.Screen
+                        name="Minha Agenda"
+                        component={AgendaStack}
+                        options={{
+                            tabBarIcon: ({ color, size }) => (
+                                <Ionicons name="calendar" size={size} color={color} />
+                            )
+                        }}
+                    />
+
                     <Tab.Screen
                         name="Clientes"
                         component={AdminClientsScreen}
